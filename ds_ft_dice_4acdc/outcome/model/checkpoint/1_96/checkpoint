@@ -1,0 +1,5 @@
+model_checkpoint_path: "ds_ft_dice_4acdc.model-40000"
+all_model_checkpoint_paths: "ds_ft_dice_4acdc.model-10000"
+all_model_checkpoint_paths: "ds_ft_dice_4acdc.model-20000"
+all_model_checkpoint_paths: "ds_ft_dice_4acdc.model-30000"
+all_model_checkpoint_paths: "ds_ft_dice_4acdc.model-40000"

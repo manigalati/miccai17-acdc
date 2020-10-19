@@ -1,6 +1,7 @@
 from __future__ import division
 import os
 import time
+import re
 from glob import glob
 import cv2
 import scipy.ndimage
@@ -133,7 +134,7 @@ class unet_3D_xy(object):
 
         # up-sampling path
         # compute up-sample path in gpu1
-        with tf.device("/gpu:1"):
+        with tf.device("/gpu:0"):
             deconv1_1 = deconv_bn_relu(input=conv4_2_relu, output_chn=256, is_training=phase_flag, name='deconv1_1')
             #
             concat_1 = tf.concat([deconv1_1, conv3_2_relu], axis=concat_dim, name='concat_1')
@@ -177,7 +178,7 @@ class unet_3D_xy(object):
         top4b = opt4b.apply_gradients(zip(grads[15:18], tmp[15:18]))
         toprest = optrest.apply_gradients(zip(grads[18:], tmp[18:]))
         train_op = tf.group(top1, top2, top3a, top3b, top4a, top4b, toprest)
-        print "setting layerwise learining rate......"
+        print("setting layerwise learining rate......")
         return train_op
 
     # train function
@@ -209,11 +210,22 @@ class unet_3D_xy(object):
         # ======
 
         pair_list = []
-        for p in range(100):
+        """for p in range(100):
             img_path = os.path.join(self.traindata_dir, ('pat_' + str(p) + '.nii.gz'))
             gt_path = os.path.join(self.traindata_dir, ('pat_' + str(p) + '_gt.nii.gz'))
             pair_list.append(img_path)
-            pair_list.append(gt_path)
+            pair_list.append(gt_path)"""
+        for i in range(1,101):
+            patient="patient{:03d}".format(i)
+            patient_path = os.path.join(self.traindata_dir,patient)
+            for f in os.listdir(patient_path):
+              if("frame" in f and "_gt" not in f):
+                img_path = os.path.join(patient_path,f)
+                gt_path = os.path.join(patient_path,f.split(".nii.gz")[0]+"_gt.nii.gz")
+                print(img_path)
+                print(gt_path)
+                pair_list.append(img_path)
+                pair_list.append(gt_path)
         img_clec, label_clec = load_data_pairs(pair_list, self.resize_r, self.rename_map)
         # temporary file to save loss
         loss_log = open("loss.txt", "w")
@@ -222,7 +234,7 @@ class unet_3D_xy(object):
         init_op = tf.global_variables_initializer()
         self.sess.run(init_op)
         # load C3D model
-        self.initialize_finetune()
+        #self.initialize_finetune()
         # ======
 
         for epoch in np.arange(self.epoch):
@@ -246,7 +258,7 @@ class unet_3D_xy(object):
             cur_valid_loss = 0
             # cube_label = self.sess.run(self.pred_label, feed_dict={self.input_I: batch_val_img})
             # dice_loss = self.sess.run(self.dice_loss, feed_dict={self.input_I: batch_val_img, self.input_gt: batch_val_label})
-            print np.unique(batch_label)
+            print(np.unique(batch_label))
             # print np.unique(cube_label)
             # dice value
             # dice_c = []
@@ -284,7 +296,7 @@ class unet_3D_xy(object):
         # test
         test_cnt = 0
         for k in range(101, 151):
-            print "========== processing No. %d volume..." % k
+            print("========== processing No. %d volume..." % k)
             # load the volume
             test_img_path = os.path.join(self.testdata_dir, ('patient' + str(k) + '_ED.nii.gz'))
             vol_file = nib.load(test_img_path)
@@ -317,7 +329,7 @@ class unet_3D_xy(object):
             for i in range(len(self.rename_map)):
                 composed_label[composed_orig == i] = self.rename_map[i]
             composed_label = composed_label.astype('int16')
-            print np.unique(composed_label)
+            print(np.unique(composed_label))
 
             # for s in range(composed_label.shape[2]):
             #     cv2.imshow('volume_seg', np.concatenate(((vol_data_resz[:, :, s]*255.0).astype('uint8'), (composed_label[:, :, s]/4).astype('uint8')), axis=1))
@@ -364,7 +376,7 @@ class unet_3D_xy(object):
         # test
         test_cnt = 0
         for k in range(100, 200):
-            print "========== processing No. %d volume..." % k
+            print("========== processing No. %d volume..." % k)
             # load the volume
             test_img_path = os.path.join(self.testdata_dir, ('pat_' + str(k) + '.nii.gz'))
             vol_file = nib.load(test_img_path)
@@ -443,7 +455,7 @@ class unet_3D_xy(object):
 
     # load C3D model
     def initialize_finetune(self):
-        checkpoint_dir = '../outcome/model/C3D_unet_1chn'
+        checkpoint_dir = '/content/checkpoint/1_96'
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)

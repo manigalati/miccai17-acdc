@@ -5,7 +5,7 @@ from ini_file_io import load_train_ini
 from model import unet_3D_xy
 
 # set cuda visable device
-os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
 def main(_):
@@ -14,7 +14,7 @@ def main(_):
     param_sets = load_train_ini(ini_file)
     param_set = param_sets[0]
 
-    print '====== Phase >>> %s <<< ======' % param_set['phase']
+    print('====== Phase >>> %s <<< ======' % param_set['phase'])
 
     if not os.path.exists(param_set['chkpoint_dir']):
         os.makedirs(param_set['chkpoint_dir'])

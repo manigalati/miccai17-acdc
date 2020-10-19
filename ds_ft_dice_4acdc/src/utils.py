@@ -250,7 +250,7 @@ def remove_minor_cc(vol_data, rej_ratio, rename_map):
     class_n = len(rename_map)
     # retrieve all classes
     for c in range(1, class_n):
-        print 'processing class %d...' % c
+        print('processing class %d...' % c)
 
         class_idx = (vol_data==rename_map[c])*1
         class_vol = np.sum(class_idx)
@@ -267,7 +267,7 @@ def remove_minor_cc(vol_data, rej_ratio, rename_map):
 
 
 def remove_complex_cc(vol_data, rej_ratio, rename_map):
-    print np.unique(vol_data)
+    print(np.unique(vol_data))
 
     # rem_vol = copy.deepcopy(vol_data)
     rem_vol = np.zeros(vol_data.shape)
@@ -293,7 +293,7 @@ def remove_complex_cc(vol_data, rej_ratio, rename_map):
     #
     new_vol = vol_data * rem_vol
     new_vol = new_vol.astype('int16')
-    print np.unique(new_vol)
+    print(np.unique(new_vol))
 
     return new_vol
 

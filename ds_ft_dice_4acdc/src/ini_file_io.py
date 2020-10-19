@@ -1,9 +1,9 @@
 #!/usr/bin/python
-import ConfigParser
+import configparser
 
 def load_train_ini(ini_file):
     # initialize
-    cf = ConfigParser.ConfigParser()
+    cf = configparser.ConfigParser()
     cf.read(ini_file)
     # dictionary list
     param_sections = []

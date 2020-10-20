@@ -297,65 +297,74 @@ class unet_3D_xy(object):
         test_cnt = 0
         for k in range(101, 151):
             print("========== processing No. %d volume..." % k)
-            # load the volume
-            test_img_path = os.path.join(self.testdata_dir, ('patient' + str(k) + '_ED.nii.gz'))
-            vol_file = nib.load(test_img_path)
-            ref_affine = vol_file.affine
-            # get volume data
-            vol_data = vol_file.get_data().copy()
-            resize_dim = np.array([vol_data.shape[0], vol_data.shape[1], 32]).astype('int')
-            vol_data_resz = resize(vol_data, resize_dim, order=1, preserve_range=True)
-            # normalization
-            vol_data_resz = vol_data_resz.astype('float32')
-            vol_data_resz = vol_data_resz / 255.0
+            patient="patient{:03d}".format(k)
+            patient_path = os.path.join(self.testdata_dir,patient)
+            frames=[]
+            for f in os.listdir(patient_path):
+              if("frame" in f):
+                frames.append(int(f.split("frame")[1].split(".nii")[0]))
+            for phase in ["ED","ES"]:
+              if(phase=="ED"):
+                test_img_path=os.path.join(patient_path,"{}_frame{:02d}.nii.gz".format(patient,min(frames)))
+              else:
+                test_img_path=os.path.join(patient_path,"{}_frame{:02d}.nii.gz".format(patient,max(frames)))
+              vol_file = nib.load(test_img_path)
+              ref_affine = vol_file.affine
+              # get volume data
+              vol_data = vol_file.get_data().copy()
+              resize_dim = np.array([vol_data.shape[0], vol_data.shape[1], 32]).astype('int')
+              vol_data_resz = resize(vol_data, resize_dim, order=1, preserve_range=True)
+              # normalization
+              vol_data_resz = vol_data_resz.astype('float32')
+              vol_data_resz = vol_data_resz / 255.0
 
-            # decompose volume into list of cubes
-            cube_list = decompose_vol2cube(vol_data_resz, self.batch_size, self.inputI_size, self.inputI_chn, self.ovlp_ita)
-            # predict on each cube
-            cube_label_list = []
-            for c in range(len(cube_list)):
-                cube2test = cube_list[c]
-                mean_temp = np.mean(cube2test)
-                dev_temp = np.std(cube2test)
-                cube2test_norm = (cube2test - mean_temp) / dev_temp
+              # decompose volume into list of cubes
+              cube_list = decompose_vol2cube(vol_data_resz, self.batch_size, self.inputI_size, self.inputI_chn, self.ovlp_ita)
+              # predict on each cube
+              cube_label_list = []
+              for c in range(len(cube_list)):
+                  cube2test = cube_list[c]
+                  mean_temp = np.mean(cube2test)
+                  dev_temp = np.std(cube2test)
+                  cube2test_norm = (cube2test - mean_temp) / dev_temp
 
-                cube_label = self.sess.run(self.pred_label, feed_dict={self.input_I: cube2test_norm})
-                cube_label_list.append(cube_label)
-                # print np.unique(cube_label)
-            # compose cubes into a volume
-            composed_orig = compose_label_cube2vol(cube_label_list, resize_dim, self.inputI_size, self.ovlp_ita, self.output_chn)
-            composed_label = np.zeros(composed_orig.shape, dtype='int16')
-            # rename label
-            for i in range(len(self.rename_map)):
-                composed_label[composed_orig == i] = self.rename_map[i]
-            composed_label = composed_label.astype('int16')
-            print(np.unique(composed_label))
+                  cube_label = self.sess.run(self.pred_label, feed_dict={self.input_I: cube2test_norm})
+                  cube_label_list.append(cube_label)
+                  # print np.unique(cube_label)
+              # compose cubes into a volume
+              composed_orig = compose_label_cube2vol(cube_label_list, resize_dim, self.inputI_size, self.ovlp_ita, self.output_chn)
+              composed_label = np.zeros(composed_orig.shape, dtype='int16')
+              # rename label
+              for i in range(len(self.rename_map)):
+                  composed_label[composed_orig == i] = self.rename_map[i]
+              composed_label = composed_label.astype('int16')
+              print(np.unique(composed_label))
 
-            # for s in range(composed_label.shape[2]):
-            #     cv2.imshow('volume_seg', np.concatenate(((vol_data_resz[:, :, s]*255.0).astype('uint8'), (composed_label[:, :, s]/4).astype('uint8')), axis=1))
-            #     cv2.waitKey(30)
+              # for s in range(composed_label.shape[2]):
+              #     cv2.imshow('volume_seg', np.concatenate(((vol_data_resz[:, :, s]*255.0).astype('uint8'), (composed_label[:, :, s]/4).astype('uint8')), axis=1))
+              #     cv2.waitKey(30)
 
-            # save predicted label
-            composed_label_resz = resize(composed_label, vol_data.shape, order=0, preserve_range=True)
-            composed_label_resz = composed_label_resz.astype('int16')
+              # save predicted label
+              composed_label_resz = resize(composed_label, vol_data.shape, order=0, preserve_range=True)
+              composed_label_resz = composed_label_resz.astype('int16')
 
-            # remove minor connected components
-            # composed_label_resz = remove_complex_cc(composed_label_resz, rej_ratio=0.3, rename_map=self.rename_map)
-            # composed_label_resz = remove_minor_cc(composed_label_resz, rej_ratio=0.3, rename_map=self.rename_map)
+              # remove minor connected components
+              # composed_label_resz = remove_complex_cc(composed_label_resz, rej_ratio=0.3, rename_map=self.rename_map)
+              # composed_label_resz = remove_minor_cc(composed_label_resz, rej_ratio=0.3, rename_map=self.rename_map)
 
-            labeling_path = os.path.join(self.labeling_dir, ('patient' + str(k) + '_ED.nii.gz'))
-            labeling_vol = nib.Nifti1Image(composed_label_resz, ref_affine)
-            nib.save(labeling_vol, labeling_path)
+              labeling_path = os.path.join(self.labeling_dir, ('patient' + str(k) + '_'+phase+'.nii.gz'))
+              labeling_vol = nib.Nifti1Image(composed_label_resz, ref_affine)
+              nib.save(labeling_vol, labeling_path)
 
-            # # evaluation
-            # gt_path = os.path.join(self.testdata_dir, ('pat_' + str(k) + '_gt.nii.gz'))
-            # gt_file = nib.load(gt_path)
-            # gt_label = gt_file.get_data().copy()
-            # k_dice_c = seg_eval_metric(composed_label_resz, gt_label)
-            # print k_dice_c
-            # all_dice[test_cnt, :] = np.asarray(k_dice_c)
+              # # evaluation
+              # gt_path = os.path.join(self.testdata_dir, ('pat_' + str(k) + '_gt.nii.gz'))
+              # gt_file = nib.load(gt_path)
+              # gt_label = gt_file.get_data().copy()
+              # k_dice_c = seg_eval_metric(composed_label_resz, gt_label)
+              # print k_dice_c
+              # all_dice[test_cnt, :] = np.asarray(k_dice_c)
 
-            test_cnt = test_cnt + 1
+              test_cnt = test_cnt + 1
 
         # mean_dice = np.mean(all_dice, axis=0)
         # print "average dice: "
@@ -444,6 +453,7 @@ class unet_3D_xy(object):
 
         model_dir = "%s_%s" % (self.batch_size, self.outputI_size[0])
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+        checkpoint_dir = "checkpoint/2_96"
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
